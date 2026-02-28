@@ -1,0 +1,166 @@
+name: Build and Release IPK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version (without release suffix), e.g. 1.2.3"
+        required: false
+        default: "0.0.0"
+      tag_name:
+        description: "Release tag for manual runs, e.g. v1.2.3"
+        required: false
+        default: ""
+      publish_release:
+        description: "Publish artifacts to GitHub Releases"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_DIR: HomeNetSentinel
+  PROJECT_FILE: HomeNetSentinel.csproj
+
+jobs:
+  build-ipk:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-musl-x64
+            ipk_arch: x86_64
+            runner: ubuntu-latest
+          - rid: linux-musl-arm64
+            ipk_arch: aarch64_generic
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install packaging and AOT dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang lld musl-tools musl-dev zlib1g-dev fakeroot file xz-utils
+          if ! command -v ipkg-build >/dev/null 2>&1; then
+            sudo curl -fsSL \
+              https://raw.githubusercontent.com/openwrt/openwrt/master/scripts/ipkg-build \
+              -o /usr/local/bin/ipkg-build
+            sudo chmod +x /usr/local/bin/ipkg-build
+          fi
+
+      - name: Resolve package version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+          elif [[ -n "${{ github.event.inputs.version || '' }}" ]]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="0.0.0"
+          fi
+          echo "value=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish NativeAOT binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          out_dir="${{ runner.temp }}/publish/${{ matrix.rid }}"
+          mkdir -p "${out_dir}"
+          dotnet publish "${PROJECT_DIR}/${PROJECT_FILE}" \
+            -c Release \
+            -r "${{ matrix.rid }}" \
+            -p:PublishAot=true \
+            -p:SelfContained=true \
+            -p:LinkerFlavor=lld \
+            -o "${out_dir}" \
+            -v minimal
+
+      - name: Prepare binary for packer
+        id: bin
+        shell: bash
+        run: |
+          set -euo pipefail
+          out_dir="${{ runner.temp }}/publish/${{ matrix.rid }}"
+          stage_dir="${{ runner.temp }}/staging/${{ matrix.ipk_arch }}"
+          mkdir -p "${stage_dir}"
+
+          if [[ -f "${out_dir}/HomeNet-Sentinel" ]]; then
+            cp "${out_dir}/HomeNet-Sentinel" "${stage_dir}/HomeNet-Sentinel"
+          elif [[ -f "${out_dir}/HomeNetSentinel" ]]; then
+            cp "${out_dir}/HomeNetSentinel" "${stage_dir}/HomeNet-Sentinel"
+          else
+            echo "Cannot find output binary in ${out_dir}" >&2
+            ls -lah "${out_dir}"
+            exit 1
+          fi
+
+          chmod +x "${stage_dir}/HomeNet-Sentinel"
+          echo "path=${stage_dir}/HomeNet-Sentinel" >> "${GITHUB_OUTPUT}"
+
+      - name: Build IPK
+        shell: bash
+        run: |
+          set -euo pipefail
+          out_dir="${{ runner.temp }}/ipk/${{ matrix.ipk_arch }}"
+          mkdir -p "${out_dir}"
+          sh ./build_ipk.sh \
+            --bin "${{ steps.bin.outputs.path }}" \
+            --arch "${{ matrix.ipk_arch }}" \
+            --version "${{ steps.version.outputs.value }}-1" \
+            --output "${out_dir}"
+
+      - name: Upload IPK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipk-${{ matrix.ipk_arch }}
+          path: ${{ runner.temp }}/ipk/${{ matrix.ipk_arch }}/*.ipk
+          if-no-files-found: error
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build-ipk
+    if: github.ref_type == 'tag' || github.event.inputs.publish_release == 'true'
+    steps:
+      - name: Download all IPK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+          elif [[ -n "${{ github.event.inputs.tag_name || '' }}" ]]; then
+            tag="${{ github.event.inputs.tag_name }}"
+          else
+            tag="nightly-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: dist/*.ipk

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "HomeNet-Sentinel": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

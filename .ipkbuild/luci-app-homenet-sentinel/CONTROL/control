@@ -1,0 +1,8 @@
+Package: luci-app-homenet-sentinel
+Version: 1.0.3-4
+Architecture: x86_64
+Maintainer: HomeNet Sentinel
+Section: net
+Priority: optional
+Depends: libc, libpthread, luci-base
+Description: HomeNet Sentinel service with LuCI UI for MQTT presence and WAN telemetry.
