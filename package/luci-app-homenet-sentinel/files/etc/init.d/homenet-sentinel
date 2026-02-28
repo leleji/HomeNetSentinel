@@ -31,6 +31,7 @@ build_target_env() {
 start_service() {
 	local enabled broker_host broker_port username password
 	local wan_interface wan_status_interface wan_ipv6_status_interface
+	local wan_rate_refresh_interval_seconds
 
 	[ -x "$PROG" ] || return 1
 
@@ -45,6 +46,7 @@ start_service() {
 	config_get wan_interface main wan_interface "pppoe-wan"
 	config_get wan_status_interface main wan_status_interface "wan"
 	config_get wan_ipv6_status_interface main wan_ipv6_status_interface "wan_6"
+	config_get wan_rate_refresh_interval_seconds main wan_rate_refresh_interval_seconds "3"
 
 	[ -n "$broker_host" ] || {
 		logger -t homenet-sentinel "broker_host is empty"
@@ -74,7 +76,8 @@ start_service() {
 		"HNS_TARGETS=$TARGETS" \
 		"HNS_WAN_INTERFACE=$wan_interface" \
 		"HNS_WAN_STATUS_INTERFACE=$wan_status_interface" \
-		"HNS_WAN_IPV6_STATUS_INTERFACE=$wan_ipv6_status_interface"
+		"HNS_WAN_IPV6_STATUS_INTERFACE=$wan_ipv6_status_interface" \
+		"HNS_WAN_RATE_REFRESH_INTERVAL_SECONDS=$wan_rate_refresh_interval_seconds"
 	procd_set_param respawn 5 5 0
 	procd_close_instance
 }

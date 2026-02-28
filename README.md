@@ -35,7 +35,7 @@ HomeNet Sentinel 是一个运行在 OpenWrt 上的家庭网络监控服务，支
 
 - 下载速率（MB/s）
 - 上传速率（MB/s）
-- 连接数（conn，10 秒发布一次）
+- 连接数（conn，默认 30 秒发布一次）
 - 接收总流量（GB，整数）
 - 发送总流量（GB，整数）
 - IPv4 地址
@@ -53,32 +53,15 @@ HomeNet Sentinel 是一个运行在 OpenWrt 上的家庭网络监控服务，支
 
 通过 LuCI：`服务 -> 家庭网络哨兵`
 
-或直接编辑 UCI 配置：`/etc/config/homenet-sentinel`
-
-示例：
-
-```conf
-config main 'main'
-    option enabled '0'
-    option broker_host '192.168.5.1'
-    option broker_port '1883'
-    option username 'admin'
-    option password 'your_password'
-    option wan_interface 'pppoe-wan'
-    option wan_status_interface 'wan'
-    option wan_ipv6_status_interface 'wan_6'
-
-config target
-    option name '我的手机'
-    option ip '192.168.5.16'
-```
 
 说明：
 
-- 仅接口项有默认值：
+- 接口与刷新项有默认值：
   - `wan_interface=pppoe-wan`
   - `wan_status_interface=wan`
   - `wan_ipv6_status_interface=wan_6`
+  - `wan_rate_refresh_interval_seconds=3`（上传/下载刷新延迟）
+- 连接数发送间隔固定为 30 秒，其他数据有变动即刷新
 - MQTT 服务器和目标 IP 需手动配置
 
 ---

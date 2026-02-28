@@ -55,6 +55,9 @@ string? lastIpv6Pd = null;
 string? lastDownloadRate = null;
 string? lastUploadRate = null;
 DateTimeOffset lastConnPublishTime = DateTimeOffset.MinValue;
+DateTimeOffset lastWanRatePublishTime = DateTimeOffset.MinValue;
+var wanRateRefreshInterval = TimeSpan.FromSeconds(settings.WanRateRefreshIntervalSeconds);
+var connPublishInterval = TimeSpan.FromSeconds(30);
 
 var client = new MqttClientFactory().CreateMqttClient();
 var optionsBuilder = new MqttClientOptionsBuilder()
@@ -271,19 +274,24 @@ while (true)
         var downloadRateText = downloadMb.ToString("F3", CultureInfo.InvariantCulture);
         var uploadRateText = uploadMb.ToString("F3", CultureInfo.InvariantCulture);
 
-        if (lastDownloadRate != downloadRateText)
+        if (DateTimeOffset.UtcNow - lastWanRatePublishTime >= wanRateRefreshInterval)
         {
-            await PublishRetainedText(client, wanDownloadTopic, downloadRateText);
-            lastDownloadRate = downloadRateText;
+            if (lastDownloadRate != downloadRateText)
+            {
+                await PublishRetainedText(client, wanDownloadTopic, downloadRateText);
+                lastDownloadRate = downloadRateText;
+            }
+
+            if (lastUploadRate != uploadRateText)
+            {
+                await PublishRetainedText(client, wanUploadTopic, uploadRateText);
+                lastUploadRate = uploadRateText;
+            }
+
+            lastWanRatePublishTime = DateTimeOffset.UtcNow;
         }
 
-        if (lastUploadRate != uploadRateText)
-        {
-            await PublishRetainedText(client, wanUploadTopic, uploadRateText);
-            lastUploadRate = uploadRateText;
-        }
-
-        if (DateTimeOffset.UtcNow - lastConnPublishTime >= TimeSpan.FromSeconds(10))
+        if (DateTimeOffset.UtcNow - lastConnPublishTime >= connPublishInterval)
         {
             await PublishRetainedText(client, wanConnCountTopic, sample.ConntrackCount.ToString(CultureInfo.InvariantCulture));
             lastConnPublishTime = DateTimeOffset.UtcNow;
@@ -385,6 +393,7 @@ static AppSettings LoadSettings()
     var wanInterface = ReadWithDefault("HNS_WAN_INTERFACE", "pppoe-wan");
     var wanStatusInterface = ReadWithDefault("HNS_WAN_STATUS_INTERFACE", "wan");
     var wanIpv6StatusInterface = ReadWithDefault("HNS_WAN_IPV6_STATUS_INTERFACE", "wan_6");
+    var wanRateRefreshIntervalSeconds = ReadPositiveIntWithDefault("HNS_WAN_RATE_REFRESH_INTERVAL_SECONDS", 3);
 
     return new AppSettings(
         brokerHost,
@@ -394,13 +403,27 @@ static AppSettings LoadSettings()
         targets,
         wanInterface,
         wanStatusInterface,
-        wanIpv6StatusInterface);
+        wanIpv6StatusInterface,
+        wanRateRefreshIntervalSeconds);
 }
 
 static string ReadWithDefault(string envName, string fallback)
 {
     var value = Environment.GetEnvironmentVariable(envName);
     return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+}
+
+static int ReadPositiveIntWithDefault(string envName, int fallback)
+{
+    var text = Environment.GetEnvironmentVariable(envName);
+    if (string.IsNullOrWhiteSpace(text))
+    {
+        return fallback;
+    }
+
+    return int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value > 0
+        ? value
+        : fallback;
 }
 
 static List<PresenceTarget> ParseTargets(string raw)
@@ -686,7 +709,8 @@ sealed record AppSettings(
     IReadOnlyList<PresenceTarget> Targets,
     string WanInterface,
     string WanStatusInterface,
-    string WanIpv6StatusInterface)
+    string WanIpv6StatusInterface,
+    int WanRateRefreshIntervalSeconds)
 {
     public bool IsValid(out string error)
     {
@@ -705,6 +729,12 @@ sealed record AppSettings(
         if (Targets.Count == 0)
         {
             error = "targets is empty";
+            return false;
+        }
+
+        if (WanRateRefreshIntervalSeconds <= 0)
+        {
+            error = "wan_rate_refresh_interval_seconds must be > 0";
             return false;
         }
 

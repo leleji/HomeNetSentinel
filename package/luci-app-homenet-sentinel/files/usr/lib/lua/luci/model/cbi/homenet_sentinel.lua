@@ -67,6 +67,12 @@ wan_ipv6_status_if:value("wan_6")
 wan_ipv6_status_if.default = "wan_6"
 wan_ipv6_status_if.rmempty = false
 
+local wan_rate_refresh = s:option(Value, "wan_rate_refresh_interval_seconds", translate("上传/下载刷新延迟(秒)"))
+wan_rate_refresh.datatype = "uinteger"
+wan_rate_refresh.default = "3"
+wan_rate_refresh.placeholder = "3"
+wan_rate_refresh.rmempty = false
+
 local t = m:section(TypedSection, "target", translate("在家检测目标"), translate("可添加多个目标，名称和 IP 都必须填写。"))
 t.template = "cbi/tblsection"
 t.anonymous = true
