@@ -53,6 +53,14 @@ HomeNet Sentinel 是一个运行在 OpenWrt 上的家庭网络监控服务，支
 
 通过 LuCI：`服务 -> 家庭网络哨兵`
 
+页面顶部会显示服务运行状态（运行中/未运行）。
+
+如勾选“启用服务”后未立即生效，可手动执行：
+
+```sh
+/etc/init.d/homenet-sentinel start
+```
+
 
 说明：
 
@@ -113,6 +121,23 @@ HomeNet Sentinel 是一个运行在 OpenWrt 上的家庭网络监控服务，支
 
 ---
 
+## 手动运行可执行文件
+
+```sh
+HNS_BROKER_HOST="192.168.5.1" \
+HNS_BROKER_PORT="1883" \
+HNS_MQTT_USERNAME="admin" \
+HNS_MQTT_PASSWORD="your_password" \
+HNS_TARGETS="我的手机|192.168.5.16;家人手机|192.168.5.20" \
+HNS_WAN_INTERFACE="pppoe-wan" \
+HNS_WAN_STATUS_INTERFACE="wan" \
+HNS_WAN_IPV6_STATUS_INTERFACE="wan_6" \
+HNS_WAN_RATE_REFRESH_INTERVAL_SECONDS="3" \
+./HomeNetSentinel
+```
+
+---
+
 
 ## MQTT 主题（主要）
 
@@ -153,6 +178,8 @@ opkg print-architecture
 /etc/init.d/homenet-sentinel status
 logread | grep homenet-sentinel
 ```
+
+也可以在 OpenWrt 后台日志页面查看：`状态 -> 系统日志`（`/cgi-bin/luci/admin/status/log`）。
 
 ---
 

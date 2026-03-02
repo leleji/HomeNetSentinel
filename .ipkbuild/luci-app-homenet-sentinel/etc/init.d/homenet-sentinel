@@ -78,6 +78,8 @@ start_service() {
 		"HNS_WAN_STATUS_INTERFACE=$wan_status_interface" \
 		"HNS_WAN_IPV6_STATUS_INTERFACE=$wan_ipv6_status_interface" \
 		"HNS_WAN_RATE_REFRESH_INTERVAL_SECONDS=$wan_rate_refresh_interval_seconds"
+	procd_set_param stdout 1
+	procd_set_param stderr 1
 	procd_set_param respawn 5 5 0
 	procd_close_instance
 }

@@ -1,5 +1,5 @@
 Package: luci-app-homenet-sentinel
-Version: 1.1.10-0
+Version: 2.0.2-0
 Architecture: x86_64
 Maintainer: HomeNet Sentinel
 Section: net

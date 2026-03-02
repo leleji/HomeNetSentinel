@@ -1,4 +1,5 @@
 local fs = require "nixio.fs"
+local sys = require "luci.sys"
 
 local function get_ifaces()
     local ifaces = {}
@@ -21,6 +22,22 @@ local function fill_iface_values(opt)
 end
 
 local m = Map("homenet-sentinel", translate("HomeNet Sentinel"), translate("配置 MQTT 在家检测与广域网监控参数。"))
+
+function m.on_after_commit(self)
+    local uci = require "luci.model.uci".cursor()
+    local enabled = uci:get("homenet-sentinel", "main", "enabled") or "0"
+
+    if enabled == "1" then
+        sys.call("/etc/init.d/homenet-sentinel enable >/dev/null 2>&1")
+        sys.call("/etc/init.d/homenet-sentinel restart >/dev/null 2>&1")
+    else
+        sys.call("/etc/init.d/homenet-sentinel stop >/dev/null 2>&1")
+        sys.call("/etc/init.d/homenet-sentinel disable >/dev/null 2>&1")
+    end
+end
+
+local status = m:section(SimpleSection)
+status.template = "homenet_sentinel/status"
 
 local s = m:section(TypedSection, "main", translate("基础设置"))
 s.anonymous = true

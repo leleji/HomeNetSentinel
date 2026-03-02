@@ -1,0 +1,23 @@
+<script type="text/javascript">
+//<![CDATA[
+XHR.poll(5, '<%=luci.dispatcher.build_url("admin", "services", "homenet-sentinel", "status")%>', null,
+    function(_, data) {
+        var el = document.getElementById('hns-service-status');
+        if (!el) {
+            return;
+        }
+
+        if (data && data.running) {
+            el.innerHTML = '<span style="color:#008800;font-weight:bold"><%:运行中%></span>';
+        } else {
+            el.innerHTML = '<span style="color:#cc0000;font-weight:bold"><%:未运行%></span>';
+        }
+    }
+);
+//]]>
+</script>
+
+<fieldset class="cbi-section">
+    <legend><%:运行状态%></legend>
+    <p id="hns-service-status"><%:检测中...%></p>
+</fieldset>
