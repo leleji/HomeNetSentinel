@@ -70,7 +70,8 @@ HomeNet Sentinel 是一个运行在 OpenWrt 上的家庭网络监控服务，支
   - `wan_ipv6_status_interface=wan_6`
   - `wan_rate_refresh_interval_seconds=3`（上传/下载刷新延迟）
 - 连接数发送间隔固定为 30 秒，其他数据有变动即刷新
-- MQTT 服务器和目标 IP 需手动配置
+- MQTT 服务器需手动配置
+- 在家检测目标可选；不配置目标时，服务仍可运行并仅发布 WAN 监控相关数据
 
 ---
 

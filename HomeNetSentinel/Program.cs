@@ -12,7 +12,7 @@ var settings = LoadSettings();
 if (!settings.IsValid(out var settingsError))
 {
     Console.Error.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Config error: {settingsError}");
-    Console.Error.WriteLine("Required: broker_host, broker_port, at least one target (name+ip). Interfaces use defaults when empty.");
+    Console.Error.WriteLine("Required: broker_host, broker_port. Targets are optional; when empty only WAN monitoring is published.");
     return;
 }
 
@@ -723,12 +723,6 @@ sealed record AppSettings(
         if (BrokerPort <= 0 || BrokerPort > 65535)
         {
             error = "broker_port must be a valid TCP port";
-            return false;
-        }
-
-        if (Targets.Count == 0)
-        {
-            error = "targets is empty";
             return false;
         }
 
